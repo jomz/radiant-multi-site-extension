@@ -1,8 +1,7 @@
 module MultiSite::PagesControllerExtensions
   def self.included(base)
-    base.class_eval {
-      alias_method_chain :discover_current_site, :root
-      alias_method_chain :index, :site
+    base.class_eval do
+      alias_method_chain :index, :root
       alias_method_chain :continue_url, :site
       alias_method_chain :remove, :back
       responses.destroy.default do 
@@ -10,26 +9,19 @@ module MultiSite::PagesControllerExtensions
         session[:came_from] = nil
         redirect_to return_url || admin_pages_url(:root => model.root.id)
       end
-    }
-  end
-
-  # for compatibility with the standard issue of multi_site, 
-  # a root parameter overrides other ways of setting site
-
-  def discover_current_site_with_root
-    site_from_root || discover_current_site_without_root
-  end
-
-  def site_from_root
-    if params[:root] && @homepage = Page.find(params[:root])
-      @site = @homepage.root.site
     end
   end
 
-  def index_with_site
-    @site ||= Page.current_site
-    @homepage ||= @site.homepage if @site
-    @homepage ||= Page.homepage
+  def index_with_root
+    if params[:root] # If a root page is specified
+      @homepage = Page.find(params[:root])
+      @site = @homepage.root.site
+    elsif @site = Site.first(:order => "position ASC") # If there is a site defined
+      if @site.homepage
+        @homepage = @site.homepage
+      end
+    end
+    @homepage ||= Page.find_by_parent_id(nil)
     response_for :plural
   end
 
@@ -41,4 +33,5 @@ module MultiSite::PagesControllerExtensions
   def continue_url_with_site(options={})
     options[:redirect_to] || (params[:continue] ? edit_admin_page_url(model) : admin_pages_url(:root => model.root.id))
   end
+
 end

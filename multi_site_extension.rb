@@ -1,7 +1,7 @@
 require_dependency 'application_controller'
 
 class MultiSiteExtension < Radiant::Extension
-  version "0.8.1"
+  version "0.9.0"
   description %{ Enables virtual sites to be created with associated domain names.
                  Also scopes the sitemap view to any given page (or the root of an
                  individual site) and allows model classes to be scoped by site. }
@@ -19,9 +19,6 @@ class MultiSiteExtension < Radiant::Extension
   end
 
   def activate
-    # ActionController::Routing modules are required rather than sent as includes
-    # because the routing persists between dev. requests and is not compatible
-    # with multiple alias_method_chain calls.
     require 'multi_site/route_extensions'
     require 'multi_site/route_set_extensions'
     
@@ -37,24 +34,32 @@ class MultiSiteExtension < Radiant::Extension
     SiteController.send :include, MultiSite::SiteControllerExtensions
     Admin::ResourceController.send :include, MultiSite::ResourceControllerExtensions
     Admin::PagesController.send :include, MultiSite::PagesControllerExtensions
-
-    unless defined? admin.site
-      Radiant::AdminUI.send :include, MultiSite::AdminUI 
-      admin.site = Radiant::AdminUI.load_default_site_regions
+    admin.pages.index.add :bottom, "site_subnav"
+    tab 'Settings' do |tab|
+      tab.add_item 'Sites', '/admin/sites'
     end
-    
-    if respond_to?(:tab)
-      tab("Content") do
-        add_item "Sites", "/admin/sites", :visibility => [:admin]
-      end
-    else
-      admin.tabs.add "Sites", "/admin/sites", :visibility => [:admin]
-    end
+    load_default_regions
   end
 
   def deactivate
   end
+
+  def load_default_regions
+    Radiant::AdminUI.class_eval { attr_accessor :sites }
+    admin.sites = returning OpenStruct.new do |sites|
+      sites.index = Radiant::AdminUI::RegionSet.new do |index|
+        index.header.concat %w{name_th match_th base_th modify_th order_th}
+        index.row.concat %w{name_td match_td base_td modify_td order_td}
+      end
+      sites.edit = Radiant::AdminUI::RegionSet.new do |edit|
+        edit.main.concat %w{edit_header edit_form}
+        edit.form.concat %w{edit_name edit_match edit_base edit_homepage}
+        edit.form_bottom.concat %w{edit_buttons}
+      end
+      sites.new = sites.edit
+    end
+  end
+
 end
 
 class ActiveRecord::SiteNotFound < Exception; end
-
