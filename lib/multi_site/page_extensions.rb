@@ -3,16 +3,16 @@
 module MultiSite::PageExtensions
   def self.included(base)
     base.class_eval {
-      alias_method_chain :url, :sites
+      alias_method_chain :path, :sites
       mattr_accessor :current_site
       has_one :site, :foreign_key => "homepage_id", :dependent => :nullify
     }
     base.extend ClassMethods
     class << base
-      def find_by_url(url, live=true)
+      def find_by_path(path, live=true)
         root = homepage
         raise Page::MissingRootPageError unless root
-        root.find_by_url(url, live)
+        root.find_by_path(path, live)
       end
       def current_site
         @current_site ||= Site.default
@@ -32,7 +32,7 @@ module MultiSite::PageExtensions
     end
   end
   
-  def url_with_sites
+  def path_with_sites
     if parent
       parent.child_url(self)
     else
